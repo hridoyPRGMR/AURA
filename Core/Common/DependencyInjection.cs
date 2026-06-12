@@ -9,6 +9,7 @@ namespace Core.Common
         public static IServiceCollection AddCore(this IServiceCollection services)
         {
             services.AddScoped<IUserService,UserService>();
+            services.AddScoped<ITaskService,TaskService>();
 
             return services;
         }

@@ -4,8 +4,8 @@ namespace Core.Models
 {
     public class TaskItem : AuditedEntity
     {
-        public required string UserPrompt { get; set; } 
-        public TaskItemStatus Status { get; set; } = TaskItemStatus.Pending;
+        public string UserPrompt { get; private set; } 
+        public TaskItemStatus Status { get; private set; } = TaskItemStatus.Pending;
         public ICollection<TaskStep> Steps  {get; private set;} = []; 
         public TaskResult? Result { get; private set; }
 

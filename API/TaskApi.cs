@@ -1,4 +1,5 @@
 using Core.IServices;
+using Shared.Dtos;
 
 namespace API
 {
@@ -10,6 +11,11 @@ namespace API
             {
                 var user = userService.GetUser();
                 return user;
+            });
+
+            routes.MapPost("/create-task", async(TaskItemCreateDto input, ITaskService taskService) =>
+            {
+                await taskService.CreateTask(input);
             });
         }
     }
