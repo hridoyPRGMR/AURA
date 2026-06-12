@@ -1,6 +1,6 @@
 using System.Collections.Frozen;
 
-namespace AURA.Core.Enums.TaskItemStatus
+namespace Core.Enums
 {
     public enum TaskItemStatus
     {

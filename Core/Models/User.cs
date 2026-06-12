@@ -1,6 +1,3 @@
-using Core.Models;
-using Core.IServices;
-
 namespace Core.Models
 {
     public class User : AuditedEntity
@@ -8,7 +5,9 @@ namespace Core.Models
         public string Email {get; private set;} = default!;
         public string Name {get; private set;} = default!;
 
-        internal User(IIdGenerator generator, string email, string name) : base(generator)
+        private User(){}
+
+        internal User(long id, string email, string name) : base(id)
         {
             Email = email;
             Name = name;

@@ -1,12 +1,23 @@
-using AURA.Core.Enums.TaskItemStatus;
+using Core.Enums;
 
-namespace AURA.Core.Models
+namespace Core.Models
 {
-    public class TaskItem
+    public class TaskItem : AuditedEntity
     {
-        public Guid Id { get; set; }
         public required string UserPrompt { get; set; } 
         public TaskItemStatus Status { get; set; } = TaskItemStatus.Pending;
-        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+        public ICollection<TaskStep> Steps  {get; private set;} = []; 
+        public TaskResult? Result { get; private set; }
+
+        private TaskItem(){}
+
+        internal TaskItem(
+            long id,
+            string prompt
+            ) : base(id)
+        {
+            UserPrompt = prompt;            
+        }
+
     }
 }

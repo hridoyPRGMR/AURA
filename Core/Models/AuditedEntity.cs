@@ -9,9 +9,11 @@ namespace Core.Models
         public DateTime CreatedAt {get; private set;} = DateTime.UtcNow;
         public DateTime? UpdatedAt {get; protected set;}
 
-        protected AuditedEntity(IIdGenerator generator)
+        protected AuditedEntity() {}
+
+        protected AuditedEntity(long id)
         {
-            Id = generator.NewId();
+            Id = id;
         }
 
         internal void MarkUpdated()

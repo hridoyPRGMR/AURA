@@ -9,7 +9,7 @@ namespace Core.Services
     ) : IUserService
     {
 
-        readonly User user = new(generator, "hridoy@gmail.com","Hridoy"); 
+        readonly User user = new(generator.NewId(), "hridoy@gmail.com","Hridoy"); 
 
         public Task<UserDto> GetUser()
         {
