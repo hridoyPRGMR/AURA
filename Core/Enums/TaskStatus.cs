@@ -6,7 +6,8 @@ namespace Core.Enums
     {
         Pending,
         Running,
-        Done
+        Done,
+        Failed
     }
 
     public static class TaskItemStatusLookUp
@@ -17,7 +18,7 @@ namespace Core.Enums
                 {TaskItemStatus.Pending, "Pending"},
                 {TaskItemStatus.Running, "Running"},
                 {TaskItemStatus.Pending, "Archived"},
-
+                {TaskItemStatus.Failed, "Failed"}
             }.ToFrozenDictionary();
     }
 }

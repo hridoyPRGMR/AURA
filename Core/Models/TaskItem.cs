@@ -19,5 +19,19 @@ namespace Core.Models
             UserPrompt = prompt;            
         }
 
+        public void MarkRunning()
+        {
+            Status = TaskItemStatus.Running;
+        }
+
+        public void MarkCompleted()
+        {
+            Status = TaskItemStatus.Done;
+        }
+
+        public void MarkFailed(string message)
+        {
+            Status = TaskItemStatus.Failed;
+        }
     }
 }
