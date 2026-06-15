@@ -2,6 +2,7 @@ using API;
 using Core.Common;
 using Core.IServices;
 using Infrastructure.Common;
+using RabbitMQ.Client;
 using Scalar.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);

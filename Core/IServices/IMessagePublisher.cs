@@ -1,10 +1,12 @@
+using Shared.Dtos;
+
 namespace Core.IServices
 {
     public interface IMessagePublisher
     {
-        Task PublishAsync<T>(
+        Task PublishAsync(
             string queue,
-            T message,
+            TaskCreatedMessage message,
             CancellationToken cancellationToken = default
         );
     }

@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.Json;
+using Core.Common;
 using Core.IRepositories;
 using Core.IServices;
 using Microsoft.Extensions.DependencyInjection;
@@ -7,27 +8,22 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
+using Shared.Dtos;
 
 namespace Worker.Services
 {
     public sealed class TaskConsumer(
-    IConnection connection,
-    IServiceScopeFactory scopeFactory,
-    ILogger<TaskConsumer> logger)
-    : BackgroundService
+        IServiceScopeFactory scopeFactory,
+        IConnection connection,
+        ILogger<TaskConsumer> logger): BackgroundService
     {
-        private readonly IConnection _connection = connection;
-        private readonly IServiceScopeFactory _scopeFactory = scopeFactory;
-        private readonly ILogger<TaskConsumer> _logger = logger;
-
         protected override async Task ExecuteAsync(
             CancellationToken stoppingToken)
         {
-            var queueName = "task-created";
+            var queueName = QueueNames.TaskCreated;
 
-            await using var channel =
-                await _connection.CreateChannelAsync(
-                    cancellationToken: stoppingToken);
+            var channel =
+                await connection.CreateChannelAsync(cancellationToken: stoppingToken);
 
             await channel.QueueDeclareAsync(
                 queue: queueName,
@@ -49,7 +45,7 @@ namespace Worker.Services
 
                     if (message is null)
                     {
-                        _logger.LogWarning("Received invalid TaskCreatedMessage");
+                        logger.LogWarning("Received invalid TaskCreatedMessage");
 
                         await channel.BasicAckAsync(
                             ea.DeliveryTag,
@@ -59,7 +55,9 @@ namespace Worker.Services
                         return;
                     }
 
-                    await ProcessTaskAsync(message, stoppingToken);
+                    using var scope = scopeFactory.CreateScope();
+                    var taskService = scope.ServiceProvider.GetRequiredService<ITaskService>();
+                    await taskService.ProcessTaskAsync(message, stoppingToken);
 
                     await channel.BasicAckAsync(
                         ea.DeliveryTag,
@@ -68,7 +66,7 @@ namespace Worker.Services
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "Error processing RabbitMQ message");
+                    logger.LogError(ex, "Error processing RabbitMQ message");
 
                     await channel.BasicNackAsync(
                         ea.DeliveryTag,
@@ -84,55 +82,11 @@ namespace Worker.Services
                 consumer: consumer,
                 cancellationToken: stoppingToken);
 
-            _logger.LogInformation("TaskConsumer started. Listening on queue {Queue}", queueName);
+            logger.LogInformation("TaskConsumer started. Listening on queue {Queue}", queueName);
 
             await Task.Delay(Timeout.Infinite, stoppingToken);
         }
 
-        private async Task ProcessTaskAsync(
-            TaskCreatedMessage message,
-            CancellationToken cancellationToken)
-        {
-            using var scope = _scopeFactory.CreateScope();
-
-            var taskRepository =
-                scope.ServiceProvider
-                    .GetRequiredService<ITaskRepository>();
-
-            var llmService = scope.ServiceProvider
-                    .GetRequiredService<ILLMService>();
-
-            var task = await taskRepository.GetByIdAsync(message.TaskId)
-                ?? throw new InvalidOperationException(
-                    $"Task {message.TaskId} not found.");
-
-            task.MarkRunning();
-            await taskRepository.SaveChangesAsync(cancellationToken);
-
-            try
-            {
-                var response =
-                    await llmService.ExecuteTaskAsync(
-                        task.UserPrompt);
-
-                // TODO:
-                // task.SetResult(response);
-
-                task.MarkCompleted();
-                await taskRepository.SaveChangesAsync(cancellationToken);
-            }
-            catch (Exception ex)
-            {
-                task.MarkFailed(ex.Message);
-                await taskRepository.SaveChangesAsync(cancellationToken);
-                throw;
-            }
-        }
-    }
-
-    public sealed class TaskCreatedMessage
-    {
-        public long TaskId { get; set; }
     }
 }
 

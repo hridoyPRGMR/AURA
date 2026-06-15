@@ -23,14 +23,16 @@ namespace Infrastructure.Common
 
             services.AddScoped<ITaskRepository, TaskRepository>();
             services.AddSingleton<IIdGenerator, SnowflakeIdGenerator>();
-            services.AddScoped<IMessagePublisher,RabbitMqPublisher>();
+            services.AddScoped<IMessagePublisher, RabbitMqPublisher>();
             services.AddSingleton<IConnection>(sp =>
             {
+                var rabbitmqSettings = configuration.GetSection("RabbitMq");
                 var factory = new ConnectionFactory
                 {
-                    HostName = "localhost",
-                    UserName = "guest",
-                    Password = "guest"
+                    HostName = rabbitmqSettings["Host"] ?? "localhost",
+                    Port = int.TryParse(rabbitmqSettings["Port"], out var port) ? port : 5672,
+                    UserName = rabbitmqSettings["Username"] ?? "guest",
+                    Password = rabbitmqSettings["Password"] ?? "guest"
                 };
 
                 return factory.CreateConnectionAsync()

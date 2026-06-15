@@ -2,6 +2,7 @@ using System.Text;
 using System.Text.Json;
 using Core.IServices;
 using RabbitMQ.Client;
+using Shared.Dtos;
 
 namespace Infrastructure.RabbitMq;
 
@@ -11,9 +12,9 @@ public sealed class RabbitMqPublisher(
 {
     private readonly IConnection _connection = connection;
 
-    public async Task PublishAsync<T>(
+    public async Task PublishAsync(
         string queueName,
-        T message,
+        TaskCreatedMessage message,
         CancellationToken cancellationToken = default)
     {
         await using var channel =

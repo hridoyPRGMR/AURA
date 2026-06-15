@@ -10,6 +10,7 @@ namespace Core.Common
         {
             services.AddScoped<IUserService,UserService>();
             services.AddScoped<ITaskService,TaskService>();
+            services.AddScoped<ILLMService,LLMService>();
 
             return services;
         }
