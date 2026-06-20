@@ -1,6 +1,8 @@
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using Core.IServices;
+using Microsoft.Extensions.Logging;
 using Shared.Dtos;
 
 namespace Core.Services
@@ -8,69 +10,92 @@ namespace Core.Services
     internal class AiAgentCallingService(
         HttpClient httpClient) : IAiAgentCallingService
     {
+        private readonly JsonSerializerOptions _jsonOptions = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase, DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull };
+
         public async Task<string> CallAgentAsync(string url, string prompt, int maxTokens = 128)
         {
-            var requestBody = new
+            var payload = new
             {
-                prompt = prompt,
+                messages = new[] { new { role = "user", content = prompt } },
                 n_predict = maxTokens
             };
 
-            var content = new StringContent(
-                JsonSerializer.Serialize(requestBody),
-                Encoding.UTF8,
-                "application/json"
-            );
+            var content = new StringContent(JsonSerializer.Serialize(payload, _jsonOptions), Encoding.UTF8, "application/json");
 
-            var response = await httpClient.PostAsync(url,content);
-            response.EnsureSuccessStatusCode();
+            using var request = new HttpRequestMessage(HttpMethod.Post, url) { Content = content };
 
-            var json = await response.Content.ReadAsStringAsync();
-            using var doc = JsonDocument.Parse(json);
+            var response = await httpClient.SendAsync(request, HttpCompletionOption.ResponseContentRead);
+            var respBody = await response.Content.ReadAsStringAsync();
 
-            if (doc.RootElement.TryGetProperty("content", out var contentElem))
+            if (!response.IsSuccessStatusCode)
             {
-                return contentElem.GetString() ?? string.Empty;
+                throw new HttpRequestException($"Agent call failed: {(int)response.StatusCode} {response.ReasonPhrase} - {respBody}");
             }
 
-            return string.Empty;
+            return ExtractContentFromJson(respBody);
         }
 
         public async Task<string> CallAgentAsync(AiAgentDto agent, string prompt)
         {
-            var body = new Dictionary<string, object?>
+            // Build payload using the OpenAI/llama "messages" schema
+            var bodyPayload = new Dictionary<string, object?>
             {
-                ["prompt"] = prompt,
+                ["messages"] = new[] { new Dictionary<string, string> { ["role"] = "user", ["content"] = prompt } },
                 ["n_predict"] = agent.MaxTokens,
-                ["temperature"] = agent.Temperature,
+                ["temperature"] = agent.Temperature
             };
 
             if (agent.AdditionalConfigs is { Count: > 0 })
             {
                 foreach (var (key, value) in agent.AdditionalConfigs)
                 {
-                    body[key] = value;
+                    bodyPayload[key] = value;
                 }
             }
 
-            var content = new StringContent(
-                JsonSerializer.Serialize(body),
-                Encoding.UTF8,
-                "application/json"
-            );
+            var content = new StringContent(JsonSerializer.Serialize(bodyPayload, _jsonOptions), Encoding.UTF8, "application/json");
 
-            var response = await httpClient.PostAsync(agent.Url, content);
-            response.EnsureSuccessStatusCode();
+            using var request = new HttpRequestMessage(HttpMethod.Post, agent.Url) { Content = content };
 
-            var json = await response.Content.ReadAsStringAsync();
-            using var doc = JsonDocument.Parse(json);
+            var response = await httpClient.SendAsync(request, HttpCompletionOption.ResponseContentRead);
+            var respBody = await response.Content.ReadAsStringAsync();
 
-            if (doc.RootElement.TryGetProperty("content", out var contentElem))
+            if (!response.IsSuccessStatusCode)
             {
-                return contentElem.GetString() ?? string.Empty;
+                throw new HttpRequestException($"Agent call failed: {(int)response.StatusCode} {response.ReasonPhrase} - {respBody}");
             }
 
-            return string.Empty;
+            return ExtractContentFromJson(respBody);
+        }
+
+        private static string ExtractContentFromJson(string json)
+        {
+            using var doc = JsonDocument.Parse(json);
+            var root = doc.RootElement;
+
+            // OpenAI-style: { choices: [ { message: { content: "" } } ] }
+            if (root.TryGetProperty("choices", out var choices) && choices.ValueKind == JsonValueKind.Array && choices.GetArrayLength() > 0)
+            {
+                var first = choices[0];
+                if (first.TryGetProperty("message", out var message) && message.TryGetProperty("content", out var contentElem))
+                {
+                    return contentElem.GetString() ?? string.Empty;
+                }
+
+                if (first.TryGetProperty("text", out var textElem))
+                {
+                    return textElem.GetString() ?? string.Empty;
+                }
+            }
+
+            // Llama-server style: { content: "..." }
+            if (root.TryGetProperty("content", out var contentField))
+            {
+                return contentField.GetString() ?? string.Empty;
+            }
+
+            // Fallback to stringifying the whole body
+            return json ?? string.Empty;
         }
     }
 }

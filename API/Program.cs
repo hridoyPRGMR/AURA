@@ -9,8 +9,7 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddCore();
-
-// Initialize AI Agent Configuration from appsettings
+// Initialize AI Agent Configuration from appsettings (populate static convenience fields)
 AiAgentConfiguration.Initialize(builder.Configuration);
 
 
@@ -26,6 +25,9 @@ if (app.Environment.IsDevelopment())
     app.MapOpenApi();
     app.MapScalarApiReference();
 }
+
+// Global exception handling middleware
+app.UseMiddleware<API.Middleware.ExceptionHandlingMiddleware>();
 
 app.UseHttpsRedirection();
 
